@@ -440,6 +440,8 @@ nav.scrolled{background:var(--navy-deep);border-bottom-color:rgba(184,150,46,.3)
 .form-submit{width:100%;padding:.95rem;background:var(--navy);color:var(--white);border:none;font-family:var(--sans);font-size:.78rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;cursor:pointer;transition:all var(--tr);display:flex;align-items:center;justify-content:center;gap:.5rem}
 .form-submit:hover{background:var(--navy-light)}
 .form-submit.sent{background:var(--gold);color:var(--navy)}
+.form-error{display:none;margin-top:.8rem;padding:.9rem 1rem;background:#fff0f0;border-left:3px solid #c0392b;font-size:.82rem;color:#7b1e1e;line-height:1.6}
+.form-error.visible{display:block}
 .mailto-cta{margin-top:1.5rem;display:flex;align-items:center;justify-content:center;gap:.5rem;font-size:.8rem;color:var(--midgrey)}
 .mailto-cta a{color:var(--navy);font-weight:600;text-decoration:underline;text-underline-offset:3px}
 
@@ -1539,6 +1541,7 @@ footer{background:var(--navy-deep);padding:5rem 0 0;border-top:1px solid rgba(18
           </div>
           <div class="fg"><label for="f-message">Tell Us About Your Business</label><textarea id="f-message" placeholder="Share a brief overview of your business, your current financial situation, and what you're trying to solve. The more context you give, the more useful our first conversation will be."></textarea></div>
           <button class="form-submit" id="formBtn" type="button">Send Message →</button>
+          <div class="form-error" id="formError" role="alert"></div>
           <p class="mailto-cta">Prefer email? <a href="mailto:hello@lodeconsulting.com?subject=Enquiry%20%E2%80%94%20LODE.%20Consulting&body=Hello%20LODE.%20Team%2C%0A%0AI%20came%20across%20LODE.%20Consulting%20via%3A%20%5Bplease%20specify%20%E2%80%94%20website%2C%20referral%2C%20social%20media%2C%20event%2C%20LinkedIn%2C%20etc.%5D%0A%0AAbout%20my%20business%3A%0ACompany%20Name%3A%20%0AIndustry%3A%20%0AStage%3A%20%0A%0AWhat%20I%E2%80%99m%20looking%20for%3A%20%0A%0ATimeline%3A%20%0A%0AKind%20regards%2C%0A%5BYour%20Name%5D">Write to us directly</a></p>
         </div>
       </div>
@@ -1818,79 +1821,114 @@ document.querySelectorAll('.svc-teaser').forEach(el => {
   });
 });
 
-/* ══════════════════════════════════════════════════════════════
-   CONTACT FORM — Formsubmit.co
-   No account or API key needed. Sends directly to
-   hello@lodeconsulting.com via Formsubmit's free service.
-   NOTE: The very first submission triggers a one-time
-   verification email — confirm it once to activate.
-══════════════════════════════════════════════════════════════ */
+/* ══════════════════════════════════════════════
+   CONTACT FORM — Formspree (https://formspree.io/f/xvzdnvgw)
+   Uses JSON payload — required for AJAX submissions
+   to avoid CORS preflight issues on custom domains.
+══════════════════════════════════════════════ */
 const formBtn = document.getElementById('formBtn');
+const formError = document.getElementById('formError');
+
+function showFormError(msg) {
+  if (!formError) return;
+  formError.textContent = msg;
+  formError.classList.add('visible');
+}
+function clearFormError() {
+  if (!formError) return;
+  formError.textContent = '';
+  formError.classList.remove('visible');
+}
+
 if (formBtn) {
   formBtn.addEventListener('click', async function() {
-    var first   = document.getElementById('f-firstname');
-    var last    = document.getElementById('f-lastname');
-    var email   = document.getElementById('f-email');
+    var first    = document.getElementById('f-firstname');
+    var last     = document.getElementById('f-lastname');
+    var email    = document.getElementById('f-email');
     var company  = document.getElementById('f-company');
     var phone    = document.getElementById('f-phone');
     var location = document.getElementById('f-location');
     var industry = document.getElementById('f-industry');
     var source   = document.getElementById('f-source');
     var service  = document.getElementById('f-service');
-    var message = document.getElementById('f-message');
+    var message  = document.getElementById('f-message');
 
+    // Reset all error states
+    clearFormError();
     [first,last,email,company,message].forEach(function(f){
       if(f){ f.style.borderColor=''; f.removeAttribute('aria-invalid'); }
     });
 
-    if(!email||!email.value.trim()||!email.value.includes('@')){
-      if(email){ email.style.borderColor='#c0392b'; email.setAttribute('aria-invalid','true'); email.focus(); }
+    // Validate email
+    if(!email || !email.value.trim() || !email.value.includes('@')){
+      email.style.borderColor='#c0392b';
+      email.setAttribute('aria-invalid','true');
+      email.focus();
       return;
     }
-    if(!message||!message.value.trim()){
-      message.style.borderColor='#c0392b'; message.setAttribute('aria-invalid','true'); message.focus();
+    // Validate message
+    if(!message || !message.value.trim()){
+      message.style.borderColor='#c0392b';
+      message.setAttribute('aria-invalid','true');
+      message.focus();
       return;
     }
 
-    formBtn.textContent='Sending…';
-    formBtn.disabled=true;
-    formBtn.style.opacity='0.7';
+    formBtn.textContent = 'Sending\u2026';
+    formBtn.disabled = true;
+    formBtn.style.opacity = '0.7';
 
-    var payload=new FormData();
-    payload.append('name',((first?first.value:'')+(last?' '+last.value:'')).trim());
-    payload.append('email',email.value.trim());
-    payload.append('phone',phone?phone.value.trim():'');
-    payload.append('company',company?company.value.trim():'');
-    payload.append('location',location?location.value.trim():'');
-    payload.append('industry',industry&&industry.value?industry.value:'Not specified');
-    payload.append('source',source&&source.value?source.value:'Not specified');
-    payload.append('service',service&&service.value?service.value:'Not specified');
-    payload.append('message',message.value.trim());
+    // JSON payload — Formspree AJAX requires Content-Type: application/json
+    // to avoid CORS issues on custom domains
+    var body = JSON.stringify({
+      name:     ((first?first.value:'') + (last?' '+last.value:'')).trim(),
+      email:    email.value.trim(),
+      phone:    phone    ? phone.value.trim()    : '',
+      company:  company  ? company.value.trim()  : '',
+      location: location ? location.value.trim() : '',
+      industry: industry && industry.value ? industry.value : 'Not specified',
+      source:   source   && source.value   ? source.value   : 'Not specified',
+      service:  service  && service.value  ? service.value  : 'Not specified',
+      message:  message.value.trim()
+    });
 
-    try{
-      var res=await fetch('https://formspree.io/f/xvzdnvgw',{
-        method:'POST',
-        headers:{'Accept':'application/json'},
-        body:payload
+    try {
+      var res  = await fetch('https://formspree.io/f/xvzdnvgw', {
+        method:  'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept':       'application/json'
+        },
+        body: body
       });
-      var data=await res.json();
-      if(res.ok){
-        formBtn.textContent='Message Sent \u2713';
+
+      var data = await res.json();
+
+      if (res.ok) {
+        formBtn.textContent = 'Message Sent \u2713';
         formBtn.classList.add('sent');
-        formBtn.style.opacity='1';
-        [first,last,email,company,phone,location,message].forEach(function(f){if(f)f.value='';});
-        if(industry)industry.selectedIndex=0;
-        if(source)source.selectedIndex=0;
-        if(service)service.selectedIndex=0;
+        formBtn.style.opacity = '1';
+        [first,last,email,company,phone,location,message].forEach(function(f){ if(f) f.value=''; });
+        if(industry) industry.selectedIndex = 0;
+        if(source)   source.selectedIndex   = 0;
+        if(service)  service.selectedIndex  = 0;
       } else {
-        var errMsg=data.errors?data.errors.map(function(e){return e.message;}).join(', '):'Submission failed.';
-        throw new Error(errMsg);
+        // Formspree validation errors (e.g. email blocklist, spam)
+        var errMsg = data.errors
+          ? data.errors.map(function(e){ return e.message; }).join(' ')
+          : (data.error || 'Submission failed. Please try again.');
+        formBtn.textContent = 'Send Message \u2192';
+        formBtn.disabled = false;
+        formBtn.style.opacity = '1';
+        showFormError(errMsg);
       }
-    } catch(err){
-      formBtn.textContent='Send Message \u2192';
-      formBtn.disabled=false;
-      formBtn.style.opacity='1';
-      alert('Could not send your message. Please email hello@lodeconsulting.com or call +234 901 557 8281.');
+    } catch(err) {
+      formBtn.textContent = 'Send Message \u2192';
+      formBtn.disabled = false;
+      formBtn.style.opacity = '1';
+      showFormError(
+        'Your message could not be sent. Please email us directly at hello@lodeconsulting.com or call +234 901 557 8281.'
+      );
     }
   });
 }
