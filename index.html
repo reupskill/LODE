@@ -1524,6 +1524,13 @@ footer{background:var(--navy-deep);padding:5rem 0 0;border-top:1px solid rgba(18
           </div>
           <div class="fg"><label for="f-email">Business Email</label><input id="f-email" type="email" placeholder="your@company.com" autocomplete="email"/></div>
           <div class="fg"><label for="f-company">Company Name</label><input id="f-company" type="text" placeholder="Your company" autocomplete="organization"/></div>
+          <div class="form-row">
+            <div class="fg"><label for="f-phone">Phone Number</label><input id="f-phone" type="tel" placeholder="+1 234 567 8900" autocomplete="tel"/></div>
+            <div class="fg"><label for="f-location">Location / Country</label><input id="f-location" type="text" placeholder="e.g. Lagos, Nigeria" autocomplete="country-name"/></div>
+          </div>
+          <div class="fg"><label for="f-industry">Industry</label>
+            <select id="f-industry"><option value="" disabled selected>Select your industry...</option><option>Technology &amp; Software</option><option>Financial Services</option><option>Real Estate</option><option>Professional Services</option><option>Healthcare</option><option>Retail &amp; E-commerce</option><option>Media &amp; Content</option><option>Logistics &amp; Supply Chain</option><option>Education</option><option>Energy &amp; Utilities</option><option>Construction &amp; Engineering</option><option>FMCG &amp; Consumer Goods</option><option>Other</option></select>
+          </div>
           <div class="fg"><label for="f-source">How Did You Hear About Us?</label>
             <select id="f-source"><option value="" disabled selected>Please select...</option><option>Company Website</option><option>Referral from a client</option><option>LinkedIn</option><option>Social Media</option><option>Event or Conference</option><option>Google / Search</option><option>Other</option></select>
           </div>
@@ -1824,9 +1831,12 @@ if (formBtn) {
     var first   = document.getElementById('f-firstname');
     var last    = document.getElementById('f-lastname');
     var email   = document.getElementById('f-email');
-    var company = document.getElementById('f-company');
-    var source  = document.getElementById('f-source');
-    var service = document.getElementById('f-service');
+    var company  = document.getElementById('f-company');
+    var phone    = document.getElementById('f-phone');
+    var location = document.getElementById('f-location');
+    var industry = document.getElementById('f-industry');
+    var source   = document.getElementById('f-source');
+    var service  = document.getElementById('f-service');
     var message = document.getElementById('f-message');
 
     [first,last,email,company,message].forEach(function(f){
@@ -1849,31 +1859,35 @@ if (formBtn) {
     var payload=new FormData();
     payload.append('name',((first?first.value:'')+(last?' '+last.value:'')).trim());
     payload.append('email',email.value.trim());
+    payload.append('phone',phone?phone.value.trim():'');
     payload.append('company',company?company.value.trim():'');
+    payload.append('location',location?location.value.trim():'');
+    payload.append('industry',industry&&industry.value?industry.value:'Not specified');
     payload.append('source',source&&source.value?source.value:'Not specified');
     payload.append('service',service&&service.value?service.value:'Not specified');
     payload.append('message',message.value.trim());
-    payload.append('_subject','New Enquiry — LODE. Consulting Website');
-    payload.append('_captcha','false');
-    payload.append('_template','table');
 
     try{
-      var res=await fetch('https://formsubmit.co/ajax/hello@lodeconsulting.com',{
+      var res=await fetch('https://formspree.io/f/xvzdnvgw',{
         method:'POST',
         headers:{'Accept':'application/json'},
         body:payload
       });
       var data=await res.json();
-      if(res.ok&&data.success==='true'){
-        formBtn.textContent='Message Sent ✓';
+      if(res.ok){
+        formBtn.textContent='Message Sent \u2713';
         formBtn.classList.add('sent');
         formBtn.style.opacity='1';
-        [first,last,email,company,message].forEach(function(f){if(f)f.value='';});
+        [first,last,email,company,phone,location,message].forEach(function(f){if(f)f.value='';});
+        if(industry)industry.selectedIndex=0;
         if(source)source.selectedIndex=0;
         if(service)service.selectedIndex=0;
-      } else { throw new Error(data.message||'Error'); }
+      } else {
+        var errMsg=data.errors?data.errors.map(function(e){return e.message;}).join(', '):'Submission failed.';
+        throw new Error(errMsg);
+      }
     } catch(err){
-      formBtn.textContent='Send Message →';
+      formBtn.textContent='Send Message \u2192';
       formBtn.disabled=false;
       formBtn.style.opacity='1';
       alert('Could not send your message. Please email hello@lodeconsulting.com or call +234 901 557 8281.');
